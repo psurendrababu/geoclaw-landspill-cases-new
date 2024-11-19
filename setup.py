@@ -251,10 +251,10 @@ if __name__ == "__main__":
     repo_dir = os.path.dirname(os.path.abspath(__file__))
 
     # get clawpack and geoclaw-landspill based on whether this is a git repo
-    if os.path.isdir(os.path.join(repo_dir, ".git")):
-        init_git_submodules()
-    else:
-        download_submodules()
+    # if os.path.isdir(os.path.join(repo_dir, ".git")):
+    #     init_git_submodules()
+    # else:
+    #     download_submodules()
 
     # setup Clawpack Python package
     setup_clawpack()
