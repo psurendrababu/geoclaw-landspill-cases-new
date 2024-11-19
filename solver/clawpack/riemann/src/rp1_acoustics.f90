@@ -72,12 +72,11 @@ subroutine rp1(maxm,meqn,mwaves,maux,mbc,mx,ql,qr,auxl,auxr,wave,s,amdq,apdq)
 !     # compute the leftgoing and rightgoing flux differences:
 !     # Note s(1,i) < 0   and   s(2,i) > 0.
 
-    do m=1,meqn
-        do i = 2-mbc, mx+mbc
+    do 220 m=1,meqn
+        do 220 i = 2-mbc, mx+mbc
             amdq(m,i) = s(1,i)*wave(m,1,i)
             apdq(m,i) = s(2,i)*wave(m,2,i)
-        end do
-    end do
+    220 END DO
 
     return
     end subroutine rp1

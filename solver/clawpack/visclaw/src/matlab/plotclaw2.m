@@ -28,33 +28,32 @@
 
 clawdim = 2;
 
-fprintf('\n')
-fprintf('plotclaw2  plots 2d results from clawpack or amrclaw\n')
+disp(' ')
+disp('plotclaw2  plots 2d results from clawpack or amrclaw')
 
 set_value('NoQuery','NoQuery',0);
-set_value('maxlevels','MaxLevels',6);
 
 % set plotting parameters:
 whichfile = which('setplot2');
 if strcmp(whichfile,'')
-    fprintf('*** No setplot2 file found\n')
+    disp('*** No setplot2 file found')
 else
     if (NoQuery == 0)
-        inp = input('Execute setplot2 (default = yes)? ','s');
+        inp = input(['Execute setplot2 (default = yes)? '],'s');
         if (isempty(inp))
             inp = 'y';
         end
     else
         inp = 'y';
-    end
-    inpd = strfind('y',lower(inp));
+    end;
+    inpd = findstr('y',lower(inp));
     if (inpd == 1)
         setplot2;
-        fprintf('Executing m-script %s\n',whichfile)
-        fprintf('\n')
+        disp(['Executing m-script ' whichfile])
+        disp(' ')
     end
 end
-fprintf('\n');
+disp(' ')
 
 % the file setprob.m can be used to set up any necessary physical parameters
 % or desired values of plotting parameters for this particular problem.
@@ -63,17 +62,17 @@ whichfile = which('setprob');
 if strcmp(whichfile,'')
   %disp('*** No setprob file found')
 else
-  fprintf('Executing m-script %s\n',whichfile)
-  fprintf('\n')
-  setprob();
+  disp(['Executing m-script ' whichfile])
+  disp(' ')
+  setprob
 end
 
 %=============================================
 % MAIN LOOP ON FRAMES:
 %=============================================
 
-if ~exist('MaxFrames','var')
-   fprintf('MaxFrames parameter not set... you may need to execute setplot2\n')
+if ~exist('MaxFrames')
+   disp('MaxFrames parameter not set... you may need to execute setplot2')
    return
 end
 
@@ -95,11 +94,11 @@ while Frame <= MaxFrames
   if (query_quit)
       break;
   end
-  if (Frame ~= Frame_old || isempty(amrdata))
+  if (Frame ~= Frame_old | isempty(amrdata))
     [amrdata,t] = readamrdata(clawdim,Frame,outputdir,outputflag,...
-	             outputprefix,readblocknumber);
+	outputprefix,readblocknumber);
   end
 
-plotframe2; 
+  plotframe2; 
 
 end % main loop on frames

@@ -4,10 +4,8 @@ Jupyter notebooks.
 
 Three types of animations are supported: 
  - using the ipywidget interact to create a figure with a slider bar, 
- - an `animation.FuncAnimation` object, which can be displayed using the
-   `to_jshtml` method in a notebook, or written to an html file.
-   NOTE: this replaces the old JSAnimation tools, now incorporated into
-   matplotlib's `animation.FuncAnimation`.
+ - using JSAnimation to create Javascript code that loops over a set of 
+   images and adds controls to play as an animation.
  - creation of mp4 files using ffmpeg (provided this package is installed).
 
 The set of images to combine in an animation can be specified as a
@@ -22,34 +20,32 @@ stand-alone files that can be viewed in other ways, including
  - A mp4 file,
  - A reStructured text file with the JSAnimation for inclusion in Sphinx docs.
 
-The utility function make_anim_outputs_from_plotdir can be used to convert the 
-png files in a Clawpack _plots directory into standalone animations of the types
-listed above.  See the file 
-    $CLAW/visclaw/src/python/visclaw/make_anim.py 
-for an example of how this can be invoked from an applications directory.
+The utility function make_anim_from_plotdir can be used to convert the png 
+files in a Clawpack _plots directory into standalone animations of the types
+listed above.  See the file make_anim.py for an example of how this can be
+invoked from an applications directory.
 
-For illustration of many of the tools defined in this module, see the notebook
-  $CLAW/apps/notebooks/visclaw/animation_tools_demo.html
-also visible in rendered form in the Clawpack gallery:
-  http://www.clawpack.org/gallery/_static/apps/notebooks/visclaw/animation_tools_demo.html
-  
 See also:
  https://ipywidgets.readthedocs.io/en/latest/#ipywidgets
- https://matplotlib.org/3.1.1/api/_as_gen/matplotlib.animation.Animation.html
+ https://github.com/jakevdp/JSAnimation
 
 More documentation of these functions is needed and they can probably be
 improved.
-
-Version: Updated for Clawpack v5.7.1.
 
 """
 
 # use Python 3 style print function rather than Python 2 print statements:
 from __future__ import print_function 
 
+from IPython.display import display
 from matplotlib import image, animation
 from matplotlib import pyplot as plt
-import warnings
+from ipywidgets import interact, interact_manual
+import ipywidgets
+import io
+from matplotlib import pyplot as plt
+
+from JSAnimation import IPython_display
 
 
 def make_plotdir(plotdir='_plots', clobber=True):
@@ -85,7 +81,7 @@ def save_frame(frameno, plotdir='_plots', fname_base='frame', format='png',
         print("Saved ",filename)
 
 
-def make_anim(plotdir, fname_pattern='frame*.png', figsize=None, dpi=None):
+def make_anim(plotdir, fname_pattern='frame*.png', figsize=(10,6), dpi=None):
     """
     Assumes that a set of frames are available as png files in directory _plots,
     numbered consecutively, e.g. frame0000.png, frame0001.png, etc.
@@ -94,43 +90,32 @@ def make_anim(plotdir, fname_pattern='frame*.png', figsize=None, dpi=None):
 
     You can then display anim in an IPython notebook, or
     call make_html(anim) to create a stand-alone webpage.
-    
-    Note also the convenience functions that call this function:
-        animate_from_plotdir: assumes plotdir has standard from from Clawpack
-        make_anim_outputs_from_plotdir: creates .html, .mp4, and/or .rst files
     """
 
     import matplotlib
+
+    if matplotlib.backends.backend in ['MacOSX']:
+        print("*** animation.FuncAnimation doesn't work with backend %s" \
+            % matplotlib.backends.backend)
+        print("*** Suggest using 'Agg'")
+        return
+        
 
     import glob   # for finding all files matching a pattern
 
     # Find all frame files:
     filenames = glob.glob('%s/%s' % (plotdir, fname_pattern))
-    
-    if len(filenames)==0:
-        msg = '\n*** No files found matching %s/%s' % (plotdir, fname_pattern)
-        warnings.warn(msg)
-        return None
 
     # sort them into increasing order:
     filenames=sorted(filenames)
 
-    im0 = image.imread(filenames[0])
-    
-    if figsize is None:
-        # choose figsize based on aspect ratio of image
-        xin = 6.  # width in inches
-        yin = xin * im0.shape[0]/im0.shape[1]
-        figsize = (xin,yin)
-        #print('+++ im0.shape, xin, yin: ',im0.shape, xin, yin)
-        
     fig = plt.figure(figsize=figsize, dpi=dpi)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis('off')  # so there's not a second set of axes
-    im = plt.imshow(im0)
-    
+    im = plt.imshow(image.imread(filenames[0]))
+
     def init():
-        im.set_data(im0)
+        im.set_data(image.imread(filenames[0]))
         return im,
 
     def animate(i):
@@ -141,20 +126,20 @@ def make_anim(plotdir, fname_pattern='frame*.png', figsize=None, dpi=None):
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                           frames=len(filenames), interval=200, blit=True)
 
-    plt.close(fig)
-
     return anim
 
 
-def animate_images(images, figsize=(10,6), dpi=None):
+def JSAnimate_images(images, figsize=(10,6), dpi=None):
 
-    """
-    Convert a list of images to anim using animation.FuncAnimation.
-    """
-    
     import matplotlib
 
-    # display each image in a new fig:
+    if matplotlib.backends.backend in ['MacOSX']:
+        print("*** animation.FuncAnimation doesn't work with backend %s" \
+            % matplotlib.backends.backend)
+        print("*** Suggest using 'Agg'")
+        return
+        
+
     fig = plt.figure(figsize=figsize, dpi=None)
     ax = fig.add_axes([0, 0, 1, 1])
     ax.axis('off')  # so there's not a second set of axes
@@ -176,41 +161,21 @@ def animate_images(images, figsize=(10,6), dpi=None):
     return anim
 
 
-def animate_figs(figs, figsize=(10,6), dpi=300):
-
-    """
-    Convert a list of figs to anim using animation.FuncAnimation.
-    """
-    
-    images = make_images(figs, dpi=dpi)
-    anim = animate_images(images, figsize=figsize, dpi=dpi)
-    return anim
-    
-    
 def make_html(anim, file_name='anim.html', title=None, raw_html='', \
               fps=None, embed_frames=True, default_mode='once'):
     """
-    Take an animation anim created by animation.FuncAnimation or by
-    one of the other functions in this module, and convert it into a
-    stand-alone html file with specified title.
-    
-    raw_html Will be put in the html file before the figure.
+    Take an animation created by make_anim and convert it into a stand-alone
+    html file.
     """
 
+    from JSAnimation.IPython_display import anim_to_html
 
-    try:
-        html_body = anim.to_jshtml(fps=fps, embed_frames=embed_frames, \
-                                   default_mode=default_mode)
-    except:
-        msg = '\n*** anim.to_jshtml() failed, not making animation' \
-              + '\n*** you may need to update your version of matplotlib'
-        warnings.warn(msg)
-        html_body = '<h2>Unable to make animation</h2>\n' + \
-                    '<h3>Consider updating matplotlib</h3>\n'
+
+    html_body = anim_to_html(anim, fps=fps, embed_frames=embed_frames, \
+                 default_mode=default_mode)
 
     html_file = open(file_name,'w')
-    if title is not None:
-        html_file.write("<html>\n <h1>%s</h1>\n" % title)
+    html_file.write("<html>\n <h1>%s</h1>\n" % title)
     html_file.write(raw_html)
     html_file.write(html_body)
     html_file.close()
@@ -220,14 +185,15 @@ def make_html(anim, file_name='anim.html', title=None, raw_html='', \
 def make_rst(anim, file_name='anim.rst',
               fps=None, embed_frames=True, default_mode='once'):
     """
-    Take an animation anim created by animation.FuncAnimation or by
-    one of the other functions in this module, and convert it into rst.
+    Take an animation created by make_anim and convert it into an rst file 
     (reStructuredText, for inclusion in Sphinx documentation, for example).
     """
 
+    from JSAnimation.IPython_display import anim_to_html
 
-    rst_body = anim.to_jshtml(fps=fps, embed_frames=embed_frames, \
-                               default_mode=default_mode)
+
+    rst_body = anim_to_html(anim, fps=fps, embed_frames=embed_frames, \
+                 default_mode=default_mode)
 
     rst_body = rst_body.split('\n')
 
@@ -242,8 +208,7 @@ def make_rst(anim, file_name='anim.rst',
 
 
 def make_mp4(anim, file_name='anim.mp4',
-              fps=None, embed_frames=True, default_mode='once',
-              dpi=None):
+              fps=None, embed_frames=True, default_mode='once'):
     """
     Take an animation and covert to mp4 file using ffmpeg, which must be
     installed.
@@ -255,12 +220,11 @@ def make_mp4(anim, file_name='anim.mp4',
         return
 
     if os.path.splitext(file_name)[1] != '.mp4':
-        msg = "\n*** Might not work if file extension is not .mp4"
-        warnings.warn(msg)
+        print("*** Might not work if file extension is not .mp4")
     if fps is None:
         fps = 3
     writer = animation.writers['ffmpeg'](fps=fps)
-    anim.save(file_name, writer=writer, dpi=dpi)
+    anim.save(file_name, writer=writer)
     print("Created %s" % file_name)
 
 
@@ -331,9 +295,6 @@ def imshow_noaxes(im, figsize=(8,6)):
     
 def interact_animate_images(images, figsize=(10,6), manual=False, TextInput=False):
 
-    import ipywidgets
-    from ipywidgets import interact, interact_manual
-
     def display_frame(frameno): 
         imshow_noaxes(images[frameno], figsize=figsize)
 
@@ -351,10 +312,6 @@ def interact_animate_images(images, figsize=(10,6), manual=False, TextInput=Fals
 
 def interact_animate_figs(figs, manual=False, TextInput=False):
 
-    from IPython.display import display
-    import ipywidgets
-    from ipywidgets import interact, interact_manual
-
     def display_frame(frameno): 
         display(figs[frameno])
 
@@ -371,9 +328,9 @@ def interact_animate_figs(figs, manual=False, TextInput=False):
         interact(display_frame, frameno=widget)
 
 
-def make_anim_outputs_from_plotdir(plotdir='_plots', fignos='all',
-        outputs=['mp4','html','rst'], file_name_prefix='',
-        png_prefix='frame', figsize=None, dpi=None, fps=5, raw_html=''):
+def make_anim_from_plotdir(plotdir='_plots', fignos='all',
+        outputs=['mp4','html','rst'], file_name_prefix=None,
+        figsize=(5,4), dpi=None, fps=5):
 
     """
     After running `make plots` using VisClaw, convert the png files in 
@@ -404,20 +361,18 @@ def make_anim_outputs_from_plotdir(plotdir='_plots', fignos='all',
 
     for figno in fignos:
 
-        #fname_pattern = 'frame*fig%s.png' % figno
-        fname_pattern = '%s*fig%s.png' % (png_prefix,figno)
+        fname_pattern = 'frame*fig%s.png' % figno
         anim = make_anim(plotdir, fname_pattern, figsize, dpi)
 
         if 'mp4' in outputs:
             file_name = file_name_prefix + 'fig%s.mp4' % figno
-
             make_mp4(anim, file_name, fps=fps, \
-                embed_frames=True, default_mode='once', dpi=dpi)
+                embed_frames=True, default_mode='once')
 
         if 'html' in outputs:
             file_name = file_name_prefix + 'fig%s.html' % figno
             make_html(anim, file_name, fps=fps, \
-                embed_frames=True, default_mode='once', raw_html=raw_html)
+                embed_frames=True, default_mode='once')
 
         if 'rst' in outputs:
             file_name = file_name_prefix + 'fig%s.rst' % figno
@@ -425,42 +380,3 @@ def make_anim_outputs_from_plotdir(plotdir='_plots', fignos='all',
                 embed_frames=True, default_mode='once')
 
 
-def animate_from_plotdir(plotdir='_plots', figno=None, figsize=None,
-                         dpi=None, fps=5):
-    """
-    Use the png files in plotdir to create an animation that is returned.
-    Convenience function that calls make_anim with the 
-        fname_pattern = 'frame*fig%s.png' % figno
-    If figno==None, attempt to determine figno from the movies found in plotdir.
-    """
-    import glob, re
-    
-    if figno is None:
-        # Try to determine figno from movie files
-        movie_files = glob.glob(plotdir + '/movie*html')
-        if len(movie_files) == 0:
-            print('No movie files found in %s' % plotdir)
-            return
-    
-        fignos = []
-        regexp = re.compile(r"movie[^ ]*fig(?P<figno>[0-9]*)[.html]")
-        for f in movie_files:
-            result = regexp.search(f)
-            fignos.append(result.group('figno'))
-
-        if len(fignos)==0:
-            print('Could not determine figno automatically')
-            return None
-            
-        if len(fignos) > 1:
-            print("Found multiple fignos: %s" % fignos)
-            
-        figno = int(fignos[0])
-        print("Using figno = %i" % figno)
-        
-    fname_pattern = 'frame*fig%s.png' % figno
-    anim = make_anim(plotdir, fname_pattern, figsize, dpi)
-    return anim
-        
-        
-        

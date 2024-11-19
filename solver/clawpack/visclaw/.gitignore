@@ -1,9 +1,0 @@
-
-# log files
-*.log
-
-# py3k cache directories
-__pycache__
-
-# ipython
-.ipynb_checkpoints

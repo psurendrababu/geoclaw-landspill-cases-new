@@ -27,8 +27,8 @@
 
 clawdim = 1;
 
-fprintf('\n')
-fprintf('plotclaw1  plots 1d results from clawpack\n')
+disp(' ')
+disp('plotclaw1  plots 1d results from clawpack')
 
 set_value('NoQuery','NoQuery',0);
 
@@ -36,36 +36,36 @@ set_value('NoQuery','NoQuery',0);
 % set plotting parameters:
 whichfile = which('setplot1');
 if strcmp(whichfile,'')
-    fprintf('*** No setplot1 file found.\n')
+    disp('*** No setplot1 file found')
 else
     if (NoQuery == 0)
-        inp = input('Execute setplot1 (default = yes)? ','s');
+        inp = input(['Execute setplot1 (default = yes)? '],'s');
         if (isempty(inp))
             inp = 'y';
         end
     else
         inp = 'y';
     end
-    
-    inpd = strfind('y',lower(inp));
+
+    inpd = findstr('y',lower(inp));
     if (inpd == 1)
         setplot1
-        fprintf('\n')
-        fprintf(['Executing m-script %s\n' whichfile])
+        disp(' ')
+        disp(['Executing m-script ' whichfile])
     end
 end
-fprintf('\n')
+disp(' ')
 
 % the file setprob.m can be used to set up any necessary physical parameters
 % or desired values of plotting parameters for this particular problem.
 
 whichfile = which('setprob');
 if strcmp(whichfile,'')
-    fprintf('*** No setprob file found\n')
+  %disp('*** No setprob file found')
 else
-    fprintf(['Executing m-script %s\n' whichfile])
-    fprintf('\n')
-    setprob();
+  disp(['Executing m-script ' whichfile])
+  disp(' ')
+  setprob
 end
 
 
@@ -75,36 +75,35 @@ end
 
 Frame = -1;  % initialize frame counter
 
-if ~exist('MaxFrames','var')
-    fprintf('MaxFrames parameter not set... you may need to execute setplot1\n')
-    return
+if ~exist('MaxFrames')
+  disp('MaxFrames parameter not set... you may need to execute setplot1')
+  return
 end
 
 set_value('frameinc','plot_interval',1);
 set_value('outputdir','OutputDir','./');
 set_value('outputflag','OutputFlag','ascii');
-set_value('readblocknumber','ReadBlockNumber',0);
 
 amrdata = [];
 while Frame <= MaxFrames
-    
-    % pause for input from user to determine if we go to next frame,
-    % look at data, or skip around.  This may reset Frame counter.
-    
-    Frame_old = Frame;
-    queryframe  % changes value of Frame
-    
-    if (query_quit)
-        break
-    end
-    
-    if (Frame ~= Frame_old || isempty(amrdata))
-        [amrdata,t] = readamrdata(clawdim,Frame,outputdir,outputflag);
-    end
-    
-    % produce the plot:
-    
-    plotframe1   % routine claw/matlab/plotframe1.m
-    % does the plotting for this frame
-    
+
+  % pause for input from user to determine if we go to next frame,
+  % look at data, or skip around.  This may reset Frame counter.
+
+  Frame_old = Frame;
+  queryframe;  % changes value of Frame
+  
+  if (query_quit)
+      break;
+  end
+  
+  if (Frame ~= Frame_old | isempty(amrdata))
+    [amrdata,t] = readamrdata(clawdim,Frame,outputdir,outputflag);
+  end;
+
+  % produce the plot:
+
+  plotframe1   % routine claw/matlab/plotframe1.m
+               % does the plotting for this frame
+
 end % main loop on frames

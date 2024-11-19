@@ -12,12 +12,12 @@ for example, to get colors ranging from white to green.
 See matplotlib._cm for the data defining various maps.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import numpy
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-
-# Clawpack tan color for plotfigure.facecolor if desired (default now 'w'):
-clawpack_tan = '#ffeebb'  
+from six.moves import range
 
 #-------------------------
 def make_colormap(color_list):
@@ -147,14 +147,7 @@ def add_colormaps(colormaps, data_limits=[0.0,1.0], data_break=0.5,
     bounds[:int(N / 2)] = numpy.linspace(data_limits[0], data_break, int(N / 2))
     bounds[int(N / 2):] = numpy.linspace(data_break, data_limits[1], 
                                                              int(N / 2) + N % 2)
-    #norm = colors.BoundaryNorm(boundaries=bounds, ncolors=N)
-
-    try:
-        # Use this norm for proportional pw linear with better tick mark locations:
-        norm = colors.TwoSlopeNorm(data_break, data_limits[0], data_limits[1])
-    except AttributeError:
-        # older matplotlib.colors did not have TwoSlopeNorm, revert to old:
-        norm = colors.BoundaryNorm(boundaries=bounds, ncolors=N)
+    norm = colors.BoundaryNorm(boundaries=bounds, ncolors=N)
 
     return cmap, norm
 

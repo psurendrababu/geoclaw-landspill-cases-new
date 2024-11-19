@@ -141,15 +141,14 @@ subroutine rpt2(ixy,imp,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,aux1,aux2,aux3,asdq,b
 !    # compute flux difference bpasdq
 !    --------------------------------
 
-    do m=1,meqn
-        do i=ix1,ixm1
+    do 40 m=1,meqn
+        do 40 i=ix1,ixm1
             bpasdq(m,i) = 0.d0
-            do mw=1,mwaves
+            do 30 mw=1,mwaves
                 bpasdq(m,i) = bpasdq(m,i) &
                 + dmax1(s(mw,i),0.d0)*wave(m,mw,i)
-            end do
-        end do
-    end do
+            30 END DO
+    40 END DO
 
 !     # project momentum component of bpasdq to tangent plane:
     do i=ix1, ixm1
@@ -242,15 +241,14 @@ subroutine rpt2(ixy,imp,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,aux1,aux2,aux3,asdq,b
 !    # compute flux difference bmasdq
 !    --------------------------------
 
-    do m=1,meqn
-        do i=ix1,ixm1
+    do 100 m=1,meqn
+        do 100 i=ix1,ixm1
             bmasdq(m,i) = 0.d0
-            do mw=1,mwaves
+            do 90 mw=1,mwaves
                 bmasdq(m,i) = bmasdq(m,i) &
                 + dmin1(s(mw,i), 0.d0)*wave(m,mw,i)
-            end do
-        end do
-    end do
+            90 END DO
+    100 END DO
 !     # project momentum component of bmasdq to tangent plane:
     do i=ix1, ixm1
         if (imp == 1) then

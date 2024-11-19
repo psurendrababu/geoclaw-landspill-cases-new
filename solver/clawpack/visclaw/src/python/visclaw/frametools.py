@@ -3,6 +3,8 @@
 Module frametools for plotting frames of time-dependent data.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import sys
 import traceback
@@ -10,6 +12,8 @@ import glob
 import time
 import types
 
+import six
+from six.moves import input
 # "reload" is only available from a module in Python 3.
 if sys.version_info[0] >= 3:
     if sys.version_info[1] >= 4:
@@ -26,16 +30,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import ma
 from clawpack.visclaw import colormaps
-from matplotlib.colors import Normalize, LightSource
+from matplotlib.colors import Normalize
 
-# This routine is from matplotlib/lib/matplotlib/colors.py
-# from v3.1.1.
-# https://matplotlib.org/3.1.1/_modules/matplotlib/colors.html
-def _vector_magnitude(arr):
-    sum_sq = 0
-    for i in range(arr.shape[-1]):
-        sum_sq += np.square(arr[..., i, np.newaxis])
-    return np.sqrt(sum_sq)
 
 
 #==============================================================================
@@ -154,18 +150,9 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
         if plotfigure.use_for_kml:
             kml_fignos.append(figno)
 
-        if (plotfigure.facecolor is None) and \
-           ('facecolor' not in plotfigure.kwargs):
-            # Use white as default starting in v5.10.0
-            # To use old default Clawpack tan, in setplot.py set:
-            #     plotfigure.facecolor = \
-            #           clawpack.visclaw.colormaps.clawpack_tan
-            plotfigure.kwargs['facecolor'] = 'w'
-        elif plotfigure.facecolor is not None:
-            plotfigure.kwargs['facecolor'] = plotfigure.facecolor
-
-        if plotfigure.figsize is not None:
-            plotfigure.kwargs['figsize'] = plotfigure.figsize
+        if 'facecolor' not in plotfigure.kwargs:
+            # use Clawpack's default bg color (tan)
+            plotfigure.kwargs['facecolor'] = '#ffeebb'
 
         # create figure and set handle:
         plotfigure._handle = plt.figure(num=figno, **plotfigure.kwargs)
@@ -199,21 +186,6 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
             beforeaxes = getattr(plotaxes,'beforeaxes',None)
             current_data = run_str_or_func(beforeaxes,current_data)
                 
-            skip_patches_outside_xylimits = plotaxes.skip_patches_outside_xylimits
-            
-            if skip_patches_outside_xylimits is None:
-                # User didn't set.  Set to True unless there's a mapped grid
-                
-                mapc2p_exists = (plotdata.mapc2p is not None)
-                if not mapc2p_exists:
-                    # check every item in case there's a mapc2p:
-                    for itemname in plotaxes._itemnames:
-                        plotitem = plotaxes.plotitem_dict[itemname]
-                        mapc2p_exists = mapc2p_exists or \
-                                           (plotitem.mapc2p is not None)
-                                           
-                skip_patches_outside_xylimits = not mapc2p_exists
-                
 
             # NOTE: This was rearranged December 2009 to
             # loop over patches first and then over plotitems so that
@@ -234,34 +206,9 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
                 # loop over patches:
                 # ----------------
 
-
-                num_skipped = 0
-                
                 for stateno,state in enumerate(framesoln.states):
 
                     patch = state.patch
-
-                    if skip_patches_outside_xylimits:
-                        # skip patches not visible based on xlimits,ylimits:
-                        if (plotaxes.xlimits is not None) \
-                                & (type(plotaxes.xlimits) is not str):
-                            if (patch.dimensions[0].lower \
-                                        >= plotaxes.xlimits[1]) \
-                                    or  (patch.dimensions[0].upper \
-                                        <= plotaxes.xlimits[0]):
-                                num_skipped += 1
-                                continue  # go to next patch
-    
-                        if len(patch.dimensions) > 1:
-                            # 2d patch
-                            if (plotaxes.ylimits is not None) \
-                                    & (type(plotaxes.ylimits) is not str):
-                                if (patch.dimensions[1].lower \
-                                            >= plotaxes.ylimits[1]) \
-                                        or  (patch.dimensions[1].upper \
-                                            <= plotaxes.ylimits[0]):
-                                    num_skipped += 1
-                                    continue  # go to next patch
 
                     current_data.add_attribute('patch',patch)
                     current_data.add_attribute("level",1)
@@ -358,11 +305,6 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
 
                     # end of loop over plotitems
                 # end of loop over patches
-
-            if False and num_skipped > 0:
-                # possible warning message:
-                print('Skipped plotting %i patches not visible' % num_skipped)
-
             # end of loop over framesolns
 
 
@@ -385,9 +327,6 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
                         if plotitem.colorbar_ticks is not None:
                             plotitem.colorbar_kwargs['ticks'] = \
                                     plotitem.colorbar_ticks
-                        if plotitem.colorbar_extend is not None:
-                            plotitem.colorbar_kwargs['extend'] = \
-                                    plotitem.colorbar_extend
 
                         cbar = plt.colorbar(pobj, **plotitem.colorbar_kwargs)
 
@@ -404,52 +343,13 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
                 pass
             else:
                 if plotaxes.title_with_t:
-                    if 'd:h:m:s' in plotaxes.title:
-                        #from datetime import timedelta
-                        #t_str = str(timedelta(seconds=t))
-                        #title_str = plotaxes.title.replace('d:h:m:s',t_str)
-
-                        # formats the same as above but doesn't use datetime:
-                        days, remainder = divmod(t, 24*3600)
-                        hours, remainder = divmod(remainder, 3600)
-                        minutes, seconds = divmod(remainder, 60)
-                        t_str = '%i days, %i:%s:%s' \
-                                           % (days,hours,\
-                                              str(int(minutes)).zfill(2),\
-                                              str(int(seconds)).zfill(2))
-                        title_str = plotaxes.title.replace('d:h:m:s',t_str)
-
-                    elif 'h:m:s' in plotaxes.title:
-                        # keep total hours, not days
-                        hours, remainder = divmod(t, 3600)
-                        minutes, seconds = divmod(remainder, 60)
-                        t_str = '%i:%s:%s' % (hours,\
-                                              str(int(minutes)).zfill(2),\
-                                              str(int(seconds)).zfill(2))
-                        title_str = plotaxes.title.replace('h:m:s',t_str)
-
-                    elif plotaxes.title_t_format:
-                        # now allow user to specify other formats for t:
-                        t_str = plotaxes.title_t_format % t
-
-                        title_str = "%s at time t = %s" \
-                                  % (plotaxes.title,t_str)
-                        
-                    elif (t==0.) | ((t>=0.001) & (t<1000.)):
-                        title_str = "%s at time t = %14.8f" \
-                                  % (plotaxes.title,t)
+                    if (t==0.) | ((t>=0.001) & (t<1000.)):
+                        plt.title("%s at time t = %14.8f" % (plotaxes.title,t))
                     else:
-                        title_str = "%s at time t = %14.8e" \
-                                  % (plotaxes.title,t)
-
-
+                        plt.title("%s at time t = %14.8e" % (plotaxes.title,t))
                 else:
-                    # omit t from title:
-                    title_str = plotaxes.title
+                    plt.title(plotaxes.title)
 
-                if plotaxes.title_fontsize is not None:
-                    plotaxes.title_kwargs['fontsize'] = plotaxes.title_fontsize
-                plt.title(title_str, **plotaxes.title_kwargs)
 
             # call an afteraxes function if present:
             afteraxes =  getattr(plotaxes, 'afteraxes', None)
@@ -491,37 +391,6 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
                     except:
                         pass  # let axis be set automatically
 
-            if plotaxes.useOffset is not None:
-                plt.ticklabel_format(useOffset = plotaxes.useOffset)
-
-            if plotaxes.grid:
-                plt.grid(**plotaxes.grid_kwargs)
-
-            if plotaxes.xticks_fontsize is not None:
-                plotaxes.xticks_kwargs['fontsize'] = plotaxes.xticks_fontsize
-            if plotaxes.xticks_kwargs != {}:
-                plt.xticks(**plotaxes.xticks_kwargs)
-
-            if plotaxes.yticks_fontsize is not None:
-                plotaxes.yticks_kwargs['fontsize'] = plotaxes.yticks_fontsize
-            if plotaxes.yticks_kwargs != {}:
-                plt.yticks(**plotaxes.yticks_kwargs)
-
-            if plotaxes.xlabel is not None:
-                if plotaxes.xlabel_fontsize is not None:
-                    plotaxes.xlabel_kwargs['fontsize'] = plotaxes.xlabel_fontsize
-                plt.xlabel(plotaxes.xlabel, **plotaxes.xlabel_kwargs)
-            if plotaxes.ylabel is not None:
-                if plotaxes.ylabel_fontsize is not None:
-                    plotaxes.ylabel_kwargs['fontsize'] = plotaxes.ylabel_fontsize
-                plt.ylabel(plotaxes.ylabel, **plotaxes.ylabel_kwargs)
-
-            if plotaxes.aspect_latitude is not None:
-                plt.gca().set_aspect(1./np.cos(plotaxes.aspect_latitude \
-                            * np.pi/180))
-            elif plotaxes.aspect is not None:
-                plt.gca().set_aspect(plotaxes.aspect)
-
             # end of loop over plotaxes
         # end of loop over plotfigures
 
@@ -548,14 +417,12 @@ def plot_frame(framesolns,plotdata,frameno=0,verbose=False):
             figno = plotfigure.figno
             if figno in plotted_fignos:
                 if figno in kml_fignos:
-                    printfig(frameno=frameno, figno=figno,\
-                             file_prefix=plotdata.file_prefix,\
+                    printfig(frameno=frameno, figno=figno, \
                              format=plotdata.print_format, plotdir=plotdata.plotdir,\
                              verbose=verbose,kml_fig=True,kml_dpi=plotfigure.kml_dpi,
                              kml_figsize=plotfigure.kml_figsize)
                 else:
-                    printfig(frameno=frameno, figno=figno,\
-                             file_prefix=plotdata.file_prefix,\
+                    printfig(frameno=frameno, figno=figno, \
                              format=plotdata.print_format, plotdir=plotdata.plotdir,\
                              verbose=verbose,kml_fig=False)
 
@@ -667,7 +534,6 @@ def plotitem1(framesoln, plotitem, current_data, stateno):
         current_data.add_attribute('var2',var2)
 
     # Grid mapping:
-    xc_centers = patch.grid.c_centers
 
     if pp['MappedGrid'] is None:
         pp['MappedGrid'] = (pp['mapc2p'] is not None)
@@ -675,9 +541,9 @@ def plotitem1(framesoln, plotitem, current_data, stateno):
     if (pp['MappedGrid'] & (pp['mapc2p'] is None)):
         print("*** Warning: MappedGrid == True but no mapc2p specified")
     elif pp['MappedGrid']:
-        p_centers = pp['mapc2p'](xc_centers[0])
+        p_centers = pp['mapc2p'](current_data.x)
     else:
-        p_centers = xc_centers[0]
+        p_centers = current_data.x
 
     if pp['plot_type'] == '1d_from_2d_data':
         if not pp['map_2d_to_1d']:
@@ -812,24 +678,19 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
     base_params = ['plot_type','afteritem','mapc2p','MappedGrid']
 
     level_params = ['plot_var','afterpatch','kwargs',
-             'celledges_show','celledges_color','celledges_linewidth', 
-             'patch_bgcolor',
-             'patchedges_show','patchedges_color', 'patchedges_linewidth', 
-             'add_colorbar', 'pcolor_cmap','pcolor_cmin','pcolor_cmax',
+             'celledges_show','celledges_color','patch_bgcolor',
+             'patchedges_show','patchedges_color','add_colorbar',
+             'pcolor_cmap','pcolor_cmin','pcolor_cmax',
              'imshow_cmap','imshow_cmin','imshow_cmax',
-             'imshow_norm', 'imshow_alpha',
              'contour_levels','contour_nlevels','contour_min','contour_max',
              'contour_colors','contour_cmap','contour_show',
              'fill_cmap','fill_cmin','fill_cmax','fill_colors',
              'schlieren_cmap','schlieren_cmin', 'schlieren_cmax',
              'quiver_coarsening','quiver_var_x','quiver_var_y','quiver_key_show',
              'quiver_key_scale','quiver_key_label_x','quiver_key_label_y',
-             'quiver_key_scale','quiver_key_units','quiver_key_kwargs',
-             'hillshade_cmap','hillshade_vertical_exaggeration',
-             'hillshade_azimuth_degree','hillshade_altitude_degree',
-             'hillshade_latlon']
+             'quiver_key_scale','quiver_key_units','quiver_key_kwargs']
 
-    pp = params_dict(plotitem, base_params, level_params, patch.level)
+    pp = params_dict(plotitem, base_params, level_params,patch.level)
 
     if pp['mapc2p'] is None:
         # if this item does not have a mapping, check for a global mapping:
@@ -882,13 +743,9 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
 
         if pp['celledges_show']:
             pcolor_cmd += ", edgecolors=pp['celledges_color']"
-            pcolor_cmd += ", linewidths=pp['celledges_linewidth']"
         else:
             pcolor_cmd += ", shading='flat'"
-        
-        if 'rasterized' not in pp['kwargs']:
-            pcolor_cmd += ", rasterized=True"
-        
+
         pcolor_cmd += ", **pp['kwargs'])"
 
         if not var_all_masked:
@@ -909,29 +766,19 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
                 pp['imshow_cmin'] = np.min(var)
             if pp['imshow_cmax'] in ['auto',None]:
                 pp['imshow_cmax'] = np.max(var)
+            color_norm = Normalize(pp['imshow_cmin'],pp['imshow_cmax'],clip=True)
 
-            if pp['imshow_norm'] in ["auto", None]:
-                color_norm = Normalize(pp['imshow_cmin'],pp['imshow_cmax'],clip=True)
-            else:
-                color_norm = pp['imshow_norm']
-         
             xylimits = (X_edge[0,0],X_edge[-1,-1],Y_edge[0,0],Y_edge[-1,-1])
             pobj = plt.imshow(np.flipud(var.T), extent=xylimits, \
                     cmap=pp['imshow_cmap'], interpolation='nearest', \
-                    norm=color_norm, \
-                    alpha=pp["imshow_alpha"]
-                    )
+                    norm=color_norm)
 
             if pp['celledges_show']:
-                # This draws cell edges for this level.
-                # Note that these will still be visible when imshow is used
-                # for finer levels, so imshow doesn't look as good as pcolor
-                # when you only want to show celledges on coarse levels.
-                # There doesn't seem to be an easy way to fix this.
-                pobj = plt.plot(X_edge, Y_edge, color=pp['celledges_color'], 
-                                           linewidth=pp['celledges_linewidth'])
-                pobj = plt.plot(X_edge.T, Y_edge.T, color=pp['celledges_color'], 
-                                           linewidth=pp['celledges_linewidth'])
+                # This draws patch for labels shown.  Levels not shown will
+                # not have lower levels blanked out however.  There doesn't
+                # seem to be an easy way to do this.
+                pobj = plt.plot(X_edge, Y_edge, color=pp['celledges_color'])
+                pobj = plt.plot(X_edge.T, Y_edge.T, color=pp['celledges_color'])
 
         else:
             #print '*** Not doing imshow on totally masked array'
@@ -957,10 +804,8 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
 
         if pp['celledges_show']:
             pobj = pc_mth(X_edge, Y_edge, np.zeros(var.shape), \
-                    cmap=pp['patch_bgcolormap'], 
-                    edgecolors=pp['celledges_color'],
-                    linewidths=pp['celledges_linewidth'])
-        elif pp['patch_bgcolor'] != 'w':
+                    cmap=pp['patch_bgcolormap'], edgecolors=pp['celledges_color'])
+        elif pp['patch_bgcolor'] is not 'w':
             pobj = pc_mth(X_edge, Y_edge, np.zeros(var.shape), \
                     cmap=pp['patch_bgcolormap'], edgecolors='None')
 
@@ -1023,9 +868,8 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
         # plot only the patches, no data:
         if pp['celledges_show']:
             pobj = pc_mth(X_edge, Y_edge, np.zeros(var.shape), \
-                    cmap=pp['patch_bgcolormap'], 
-                    edgecolors=pp['celledges_color'],
-                    linewidths=pp['celledges_linewidth'])
+                    cmap=pp['patch_bgcolormap'], edgecolors=pp['celledges_color'],\
+                    shading='faceted')
         else:
             pobj = pc_mth(X_edge, Y_edge, np.zeros(var.shape), \
                     cmap=pp['patch_bgcolormap'], shading='flat')
@@ -1082,56 +926,6 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
         # afteraxes)
         pass
 
-    elif pp['plot_type'] == '2d_hillshade':
-        if not var_all_masked:
-            if pp['hillshade_latlon']:
-                xcoord2meters = 1/111200
-
-                # could eventually adjust dx
-                # based on np.cos(np.radians(latitude))
-
-            else:
-                xcoord2meters = 1
-            
-            ve = pp['hillshade_vertical_exaggeration'] * xcoord2meters
-            azdeg=pp['hillshade_azimuth_degree']
-            altdeg = pp['hillshade_altitude_degree']
-
-            ls = LightSource(azdeg=azdeg, altdeg=altdeg)
-            # typically would do the following:
-            #  hs = ls.hillshade(z, vert_exag=ve, dx=dx, dy=dy)
-
-            # but here we need to calculate the hillshade by hand so that the values
-            # are consistent across all patches. The matplotlib code applies a 
-            # contrast stretch that we don't want. 
-   
-            # This code was modified from:
-            # https://matplotlib.org/3.1.1/_modules/matplotlib/colors.html#LightSource
-            z = np.flipud(var.T)
-            dx = current_data.dx
-            dy = current_data.dy
-            
-            e_dy, e_dx = np.gradient(ve * z, -dy, dx)
-            normal = np.empty(z.shape + (3,)).view(type(z))
-            normal[..., 0] = -e_dx
-            normal[..., 1] = -e_dy
-            normal[..., 2] = 1
-            normal /= _vector_magnitude(normal)
-            intensity = normal.dot(ls.direction)
-
-            # contrast stretch was applied here, code was deleted from the matplotlib routines.
-
-            intensity = np.clip(intensity, 0, 1)
-            hs = intensity
-
-            xylimits = (X_edge[0, 0], X_edge[-1, -1], Y_edge[0, 0], Y_edge[-1, -1])
-            pobj = plt.imshow(hs, cmap="gray", vmin=0, vmax=1, extent=xylimits)
-            color_norm = Normalize(pp['imshow_cmin'],pp['imshow_cmax'],clip=True)
-
-        else:
-            #print '*** Not doing hillshade on totally masked array'
-            pass
-
     else:
         raise ValueError("Unrecognized plot_type: %s" % pp['plot_type'])
         return None
@@ -1146,11 +940,11 @@ def plotitem2(framesoln, plotitem, current_data, stateno):
         for i in [0, X_edge.shape[0]-1]:
             X1 = X_edge[i,:]
             Y1 = Y_edge[i,:]
-            plt.plot(X1, Y1, color=pp['patchedges_color'], linewidth=pp['patchedges_linewidth'])
+            plt.plot(X1, Y1, pp['patchedges_color'])
         for i in [0, X_edge.shape[1]-1]:
             X1 = X_edge[:,i]
             Y1 = Y_edge[:,i]
-            plt.plot(X1, Y1, color=pp['patchedges_color'], linewidth=pp['patchedges_linewidth'])
+            plt.plot(X1, Y1, pp['patchedges_color'])
 
 
     if pp['afterpatch']:
@@ -1208,10 +1002,8 @@ def get_var(state, plot_var, current_data):
 
 
 #------------------------------------------------------------------------
-def printfig(fname='',frameno='', figno='', file_prefix='fort',
-             format='png', plotdir='.',
-             verbose=True, kml_fig=False, kml_dpi=None, kml_figsize=None,
-             bbox_inches='tight',close_fig=True):
+def printfig(fname='',frameno='', figno='', format='png', plotdir='.', \
+             verbose=True, kml_fig=False, kml_dpi=None, kml_figsize=None):
 #------------------------------------------------------------------------
     """
     Save the current plot to file fname or standard name from frame/fig.
@@ -1225,15 +1017,8 @@ def printfig(fname='',frameno='', figno='', file_prefix='fort',
     If figno='' then the figJ part is omitted.
     """
 
-    if file_prefix == 'fort':
-        # usual case:
-        png_prefix = 'frame'
-    else:
-        # e.g. file_prefix == 'fgout0001'
-        png_prefix = file_prefix + 'frame'
-
     if fname == '':
-        fname = png_prefix + str(frameno).rjust(4,'0')
+        fname = 'frame' + str(frameno).rjust(4,'0')
         if isinstance(figno,int):
             fname = fname + 'fig%s' % figno
     splitfname = os.path.splitext(fname)
@@ -1259,20 +1044,12 @@ def printfig(fname='',frameno='', figno='', file_prefix='fort',
         a.set_yticks([])
 
         plt.axis('off')
-
         if kml_figsize is not None:
             fig.set_size_inches(kml_figsize[0],kml_figsize[1])
-        a.set_frame_on(False)
-        plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0, 
-                        hspace = 0, wspace = 0)
-        plt.margins(0,0)
-        plt.savefig(fname, transparent=True, bbox_inches='tight',dpi=kml_dpi)
+        plt.savefig(fname, transparent=True, bbox_inches='tight', \
+                      pad_inches=0,dpi=kml_dpi)
     else:
-        plt.savefig(fname, bbox_inches=bbox_inches)
-
-    if close_fig:
-        # to avoid running out of memory when making many plots
-        plt.close(figno)
+        plt.savefig(fname)
 
 
 #======================================================================
@@ -1627,7 +1404,7 @@ def var_minmax(plotdata,framenos,vars):
 
 
 #------------------------------------------------------------------
-def only_most_recent(framenos,outdir='.',prefix='fort',verbose=True):
+def only_most_recent(framenos,outdir='.',verbose=True):
 #------------------------------------------------------------------
 
     """
@@ -1648,8 +1425,8 @@ def only_most_recent(framenos,outdir='.',prefix='fort',verbose=True):
             return framenos
 
     fortfile = {}
-    for file in glob.glob(prefix + '.q*'):
-        frameno = int(file[-4:])
+    for file in glob.glob('fort.q*'):
+        frameno = int(file[6:])
         fortfile[frameno] = file
 
     #DK: In PetClaw, we don't output fort.q* files.  Instead count the
@@ -1889,12 +1666,12 @@ def set_show(plotdata):
         plotfigure._show = False
         if plotfigure.show:
             # Loop through all axes to make sure at least some item is showing
-            for plotaxes in plotfigure.plotaxes_dict.values():
+            for plotaxes in six.itervalues(plotfigure.plotaxes_dict):
                 plotaxes._show = False
                 if plotaxes.show:
                     # Loop through plotitems checking each item to see if it
                     # should be shown
-                    for plotitem in plotaxes.plotitem_dict.values():
+                    for plotitem in six.itervalues(plotaxes.plotitem_dict):
                         plotitem._show = plotitem.show
                         if plotitem.show:
                             plotaxes._show = True

@@ -31,7 +31,6 @@ subroutine rpt2(ixy,imp,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,aux1,aux2,aux3,asdq,b
     use amr_module, only: mcapa
     
     use geoclaw_module, only: g => grav, rho, earth_radius, pi
-    use geoclaw_module, only: coordinate_system
 
     use multilayer_module, only: num_layers, eigen_method, inundation_method
     use multilayer_module, only: eigen_func, inundation_eigen_func
@@ -200,7 +199,7 @@ subroutine rpt2(ixy,imp,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,aux1,aux2,aux3,asdq,b
         endif
 
         ! Handle lat-long coordinate systems
-        if (coordinate_system == 2) then
+        if (mcapa > 0) then
             if (ixy == 2) then
                 dxdcp=(earth_radius*pi/180.d0)
                 dxdcm = dxdcp
@@ -251,7 +250,7 @@ subroutine rpt2_single_layer(ixy,imp,ql,qr,aux1,aux2,aux3,asdq,bmasdq,bpasdq)
 
     use amr_module, only: mcapa
 
-    use geoclaw_module, only: g => grav, earth_radius, pi, coordinate_system
+    use geoclaw_module, only: g => grav, earth_radius, pi
     use multilayer_module, only: num_layers, eigen_method, inundation_method
     use multilayer_module, only: dry_tolerance
 
@@ -268,9 +267,9 @@ subroutine rpt2_single_layer(ixy,imp,ql,qr,aux1,aux2,aux3,asdq,bmasdq,bpasdq)
     real(kind=8), intent(in out) :: bmasdq(meqn)
     real(kind=8), intent(in out) :: bpasdq(meqn)
     ! Since we need two values of aux, 1 = i-1 and 2 = i
-    real(kind=8), intent(in) :: aux1(3,2)
-    real(kind=8), intent(in) :: aux2(3,2)
-    real(kind=8), intent(in) :: aux3(3,2)
+    real(kind=8), intent(in) :: aux1(2,3)
+    real(kind=8), intent(in) :: aux2(2,3)
+    real(kind=8), intent(in) :: aux3(2,3)
 
     real(kind=8) :: s(3)
     real(kind=8) :: r(3,3)
@@ -345,7 +344,7 @@ subroutine rpt2_single_layer(ixy,imp,ql,qr,aux1,aux2,aux3,asdq,bmasdq,bpasdq)
        endif
        if (eta.lt.max(topo1,topo3)) go to 90
 
-      if (coordinate_system == 2) then
+      if (mcapa > 0) then
          if (ixy.eq.2) then
             dxdcp=(earth_radius*pi/180.d0)
             dxdcm = dxdcp

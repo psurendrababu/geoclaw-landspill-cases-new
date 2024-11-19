@@ -189,19 +189,18 @@ subroutine rpn2(ixy,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,auxl,auxr,wave,s,amdq,apd
 !     # amdq = SUM s*wave   over left-going waves
 !     # apdq = SUM s*wave   over right-going waves
 
-    do m=1,meqn
-        do i=2-mbc, mx+mbc
+    do 100 m=1,meqn
+        do 100 i=2-mbc, mx+mbc
             amdq(m,i) = 0.d0
             apdq(m,i) = 0.d0
-            do mw=1,mwaves
+            do 90 mw=1,mwaves
                 if (s(mw,i) < 0.d0) then
                     amdq(m,i) = amdq(m,i) + s(mw,i)*wave(m,mw,i)
                 else
                     apdq(m,i) = apdq(m,i) + s(mw,i)*wave(m,mw,i)
                 endif
-            end do
-        end do
-    end do
+            90 END DO
+    100 END DO
 
 !     # project momentum components of amdq and apdq onto tangent plane:
 

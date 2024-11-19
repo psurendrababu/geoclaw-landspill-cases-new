@@ -12,6 +12,8 @@ Specify output directory other than _output by adding the outdir to this line:
 
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 from pylab import *
 from clawpack.visclaw import geoplot, colormaps, plotpages
 # Cannot find this!
@@ -20,6 +22,8 @@ from clawpack.visclaw import geoplot, colormaps, plotpages
 import os
 from numpy import ma
 from clawpack.clawutil.data import ClawData
+from six.moves import range
+from six.moves import input
 
 
 class ClawPlotFGData(ClawData):

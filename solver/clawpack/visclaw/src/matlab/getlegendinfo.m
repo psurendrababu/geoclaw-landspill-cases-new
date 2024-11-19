@@ -1,4 +1,4 @@
-function [level_handles,level_labels_out] = getlegendinfo(base_level)
+function [level_handles,level_labels_out] = getlegendinfo(base_level);
 
 % GETLEGENDINFO returns line plot info for creating legends.
 %
@@ -46,8 +46,7 @@ function [level_handles,level_labels_out] = getlegendinfo(base_level)
 %     See Also LEGEND, CELL, PAREN.
 
 if nargin == 0
-    %% Assume ForestClaw base
-    base_level = 0;
+    base_level = 1;
 end
 
 amrlines = get_lines;
@@ -55,7 +54,7 @@ amrlines = get_lines;
 level_handles = [];
 level_labels = {};
 k = 1;
-for level = 1:length(amrlines)
+for level = 1:length(amrlines),
   svec = amrlines{level};  
   if (~isempty(svec))
       level_labels{k} = sprintf('Level %d',level-1+base_level);
@@ -66,4 +65,4 @@ end
 
 if (nargout == 2)
   level_labels_out = level_labels;
-end
+end;

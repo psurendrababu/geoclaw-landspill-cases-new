@@ -87,7 +87,7 @@ subroutine rpn2(ixy,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,auxl,auxr,wave,s,amdq,apd
         delta(2) = ql(mu,i) - qr(mu,i-1)
     !        # impedances:
         zi = auxl(1,i)*auxl(2,i)
-        zim = auxr(1,i-1)*auxr(2,i-1)
+        zim = auxl(1,i-1)*auxl(2,i-1)
 
         a1 = (-delta(1) + zi*delta(2)) / (zim + zi)
         a2 =  (delta(1) + zim*delta(2)) / (zim + zi)
@@ -98,7 +98,7 @@ subroutine rpn2(ixy,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,auxl,auxr,wave,s,amdq,apd
         wave(1,1,i) = -a1*zim
         wave(mu,1,i) = a1
         wave(mv,1,i) = 0.d0
-        s(1,i) = -auxr(2,i-1)
+        s(1,i) = -auxl(2,i-1)
     
         wave(1,2,i) = a2*zi
         wave(mu,2,i) = a2
@@ -112,12 +112,11 @@ subroutine rpn2(ixy,maxm,meqn,mwaves,maux,mbc,mx,ql,qr,auxl,auxr,wave,s,amdq,apd
 !     # compute the leftgoing and rightgoing flux differences:
 !     # Note s(1,i) < 0   and   s(2,i) > 0.
 
-    do m=1,meqn
-        do i = 2-mbc, mx+mbc
+    do 220 m=1,meqn
+        do 220 i = 2-mbc, mx+mbc
             amdq(m,i) = s(1,i)*wave(m,1,i)
             apdq(m,i) = s(2,i)*wave(m,2,i)
-        end do
-    end do
+    220 END DO
 
     return
     end subroutine rpn2

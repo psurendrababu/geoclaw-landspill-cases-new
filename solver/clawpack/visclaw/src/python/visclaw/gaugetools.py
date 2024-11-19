@@ -2,7 +2,11 @@
 Tools for plotting data from gauges, gauge locations, etc.
 """
 
-import os,sys,glob
+from __future__ import absolute_import
+from __future__ import print_function
+import os,sys,shutil,glob
+import string,re
+import time
 import traceback
 import warnings
 
@@ -11,6 +15,7 @@ import numpy as np
 import clawpack.clawutil.data as clawdata
 
 from clawpack.visclaw.frametools import set_show
+from six.moves import range
 
 plotter = 'matplotlib'
 if plotter == 'matplotlib':
@@ -83,7 +88,7 @@ class GaugeSolution(object):
     def __init__(self, number, location=None):
         
         warnings.warn("This version of GaugeSolution is deprecated, use the ",
-                      "class definition in clawpack.pyclaw.gauges instead.")
+                      "class definition in clawpack.amrclaw.gauges instead.")
 
         # Gauge descriptors
         self.number = number
@@ -212,14 +217,8 @@ def plotgauge(gaugeno, plotdata, verbose=False):
 
 
         if 'facecolor' not in plotfigure.kwargs:
-            # Use white as default starting in v5.10.0
-            # To use old default Clawpack tan, in setplot.py set:
-            #     plotfigure.facecolor = \
-            #           clawpack.visclaw.colormaps.clawpack_tan
-            plotfigure.kwargs['facecolor'] = 'w'
-
-        if plotfigure.figsize is not None:
-            plotfigure.kwargs['figsize'] = plotfigure.figsize
+            # use Clawpack's default bg color (tan)
+            plotfigure.kwargs['facecolor'] = '#ffeebb'   
 
         # create figure and set handle:
         plotfigure._handle = pylab.figure(num=figno, **plotfigure.kwargs)
@@ -280,63 +279,45 @@ def plotgauge(gaugeno, plotdata, verbose=False):
 
             # end of loop over plotitems
 
-    
-            title_str = "%s at gauge %s" % (plotaxes.title,gaugeno)
-            if plotaxes.title_fontsize is not None:
-                plotaxes.title_kwargs['fontsize'] = plotaxes.title_fontsize
-            pylab.title(title_str, **plotaxes.title_kwargs)
-    
-            if plotaxes.time_label is not None:
-                if plotaxes.time_label_fontsize is not None:
-                    plotaxes.time_label_kwargs['fontsize'] = \
-                                    plotaxes.time_label_fontsize
-                pylab.xlabel(plotaxes.time_label, **plotaxes.time_label_kwargs)
-    
-    
-            # call an afteraxes function if present:
-            afteraxes =  getattr(plotaxes, 'afteraxes', None)
-            if afteraxes:
-                if isinstance(afteraxes, str):
-                    # a string to be executed
-                    exec(afteraxes)
-                else:
-                    # assume it's a function
-                    try:
-                        current_data.add_attribute("plotaxes",plotaxes)
-                        current_data.add_attribute("plotfigure",plotaxes._plotfigure)
-                        output = afteraxes(current_data)
-                        if output: current_data = output
-                    except:
-                        print('*** Error in afteraxes ***')
-                        raise
-    
-            if plotaxes.scaled:
-                pylab.axis('scaled')
-    
-            # set axes limits:
-            if (plotaxes.xlimits is not None) & (type(plotaxes.xlimits) is not str):
-                try:
-                    pylab.xlim(plotaxes.xlimits[0], plotaxes.xlimits[1])
-                except:
-                    pass  # let axis be set automatically
-            if (plotaxes.ylimits is not None) & (type(plotaxes.ylimits) is not str):
-                try:
-                    pylab.ylim(plotaxes.ylimits[0], plotaxes.ylimits[1])
-                except:
-                    pass  # let axis be set automatically
-    
-            if plotaxes.grid:
-                pylab.grid(**plotaxes.grid_kwargs)
- 
-            if plotaxes.xticks_kwargs is not None:
-                pylab.xticks(**plotaxes.xticks_kwargs)
-            if plotaxes.yticks_kwargs is not None:
-                pylab.yticks(**plotaxes.yticks_kwargs)
 
-            if plotaxes.ylabel is not None:
-                if plotaxes.ylabel_fontsize is not None:
-                    plotaxes.ylabel_kwargs['fontsize'] = plotaxes.ylabel_fontsize
-                pylab.ylabel(plotaxes.ylabel, **plotaxes.ylabel_kwargs)
+        for itemname in plotaxes._itemnames:
+            plotitem = plotaxes.plotitem_dict[itemname]
+
+        pylab.title("%s at gauge %s" % (plotaxes.title,gaugeno))
+
+
+        # call an afteraxes function if present:
+        afteraxes =  getattr(plotaxes, 'afteraxes', None)
+        if afteraxes:
+            if isinstance(afteraxes, str):
+                # a string to be executed
+                exec(afteraxes)
+            else:
+                # assume it's a function
+                try:
+                    current_data.add_attribute("plotaxes",plotaxes)
+                    current_data.add_attribute("plotfigure",plotaxes._plotfigure)
+                    output = afteraxes(current_data)
+                    if output: current_data = output
+                except:
+                    print('*** Error in afteraxes ***')
+                    raise
+
+        if plotaxes.scaled:
+            pylab.axis('scaled')
+
+        # set axes limits:
+        if (plotaxes.xlimits is not None) & (type(plotaxes.xlimits) is not str):
+            try:
+                pylab.xlim(plotaxes.xlimits[0], plotaxes.xlimits[1])
+            except:
+                pass  # let axis be set automatically
+        if (plotaxes.ylimits is not None) & (type(plotaxes.ylimits) is not str):
+            try:
+                pylab.ylim(plotaxes.ylimits[0], plotaxes.ylimits[1])
+            except:
+                pass  # let axis be set automatically
+
 
             # end of loop over plotaxes
             
@@ -423,28 +404,32 @@ def plotgauge1(gaugesoln, plotitem, current_data):
     color = plotitem.color
     plotstyle = plotitem.plotstyle
 
-    t = gaugesoln.t * plotaxes.time_scale
-
+    t = gaugesoln.t
     if type(plot_var) is int:
         var = gaugesoln.q[plot_var,:]
     else:
         try:
-            var = plot_var(current_data)
+            var = plot_var(gaugesoln)
         except:
-            print('Applying plot_var to current_data failed, try gaugesoln')
-            try:
-                var = plot_var(gaugesoln)
-            except:
-                raise Exception("Problem applying plot_var to gaugesoln")
+            raise Exception("Problem applying plot_var to gaugesoln")
     tmax = t.max()
     varmax = var.max()
 
+    # The plot commands using matplotlib:
+    # Need to debug why gaugesoln.number always 1 here
+    pylab.title("%s at Gauge %i" % (plotitem._plotaxes.title,\
+                 gaugesoln.id))
+
+    pylab.xlabel("time")
 
     if (plot_type in ['1d_plot']) and (plotstyle != ''):
         if color:
             kwargs['color'] = color
 
         pobj = pylab.plot(t,var,plotstyle,**kwargs)
+        # plotcommand = "pobj=pylab.plot(t,var,'%s', **kwargs)"  \
+        #               % plotstyle
+        # exec(plotcommand)
 
 
     elif plot_type == '1d_empty':
@@ -652,14 +637,14 @@ def printgauges(plotdata=None, verbose=True):
     rootdir = os.getcwd()
 
     # annoying fix needed when EPD is used for plotting under cygwin:
-    if rootdir[0:9] == r'C:\cygwin' and outdir[0:9] != r'C:\cygwin':
-        outdir = r'C:\cygwin' + outdir
+    if rootdir[0:9] == 'C:\cygwin' and outdir[0:9] != 'C:\cygwin':
+        outdir = 'C:\cygwin' + outdir
         plotdata.outdir = outdir
-    if rootdir[0:9] == r'C:\cygwin' and rundir[0:9] != r'C:\cygwin':
-        rundir = r'C:\cygwin' + rundir
+    if rootdir[0:9] == 'C:\cygwin' and rundir[0:9] != 'C:\cygwin':
+        rundir = 'C:\cygwin' + rundir
         plotdata.rundir = rundir
-    if rootdir[0:9] == r'C:\cygwin' and plotdir[0:9] != r'C:\cygwin':
-        plotdir = r'C:\cygwin' + plotdir
+    if rootdir[0:9] == 'C:\cygwin' and plotdir[0:9] != 'C:\cygwin':
+        plotdir = 'C:\cygwin' + plotdir
         plotdata.plotdir = plotdir
 
     try:

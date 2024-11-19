@@ -17,7 +17,10 @@ will call the plotclaw function from this module.
 
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import matplotlib
+from six.moves import range
 matplotlib.use('Agg') 
 
 import sys
@@ -46,7 +49,7 @@ def plotclaw(outdir='.', plotdir='_plots', setplot = 'setplot.py',
     from clawpack.visclaw.data import ClawPlotData
     from clawpack.visclaw import plotpages
 
-    plotdata = ClawPlotData(file_format=format)
+    plotdata = ClawPlotData()
     plotdata.outdir = outdir
     plotdata.plotdir = plotdir
     plotdata.setplot = setplot

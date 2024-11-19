@@ -27,7 +27,7 @@ class ClawPlotData(clawdata.ClawData):
     """
 
     # ========== Initialization routine ======================================
-    def __init__(self, controller=None, file_format="ascii"):
+    def __init__(self, controller=None):
         """Initialize a PlotData object
 
         """
@@ -46,15 +46,10 @@ class ClawPlotData(clawdata.ClawData):
                 for i,frame in enumerate(controller.frames):
                     self.framesoln_dict[str(i)] = frame
             self.add_attribute('format',copy.copy(controller.output_format))
-            self.add_attribute('file_prefix',copy.copy(controller.output_file_prefix))
         else:
             self.add_attribute('rundir',os.getcwd())     # uses *.data from rundir
             self.add_attribute('outdir',os.getcwd())     # where to find fort.* files
-            self.add_attribute('format',file_format)
-            if file_format == "petsc":
-                self.add_attribute('file_prefix','claw')
-            else:
-                self.add_attribute('file_prefix','fort')
+            self.add_attribute('format','ascii')
 
         # This should eventually replace all need for recording the above
         # information
@@ -92,9 +87,6 @@ class ClawPlotData(clawdata.ClawData):
         self.add_attribute('html_index_title','Plot Index')   # title at top of index page
         self.add_attribute('html_homelink',None)       # link to here from top of _PlotIndex.html
         self.add_attribute('html_movie','JSAnimation') # make html with java script for movie
-        self.add_attribute('html_movie_width', 500)    # width of movie (not used?)
-        self.add_attribute('html_movie_dpi', 100)      # dpi of movie
-
         self.add_attribute('html_eagle',False)         # use EagleClaw titles on html pages?
 
         self.add_attribute('kml',False)                # make kml plots and a kml file for figures
@@ -109,8 +101,6 @@ class ClawPlotData(clawdata.ClawData):
 
         self.add_attribute('gif_movie',False)          # make animated gif movie of frames
 
-        self.add_attribute('mp4_movie',False)         # make animated mp4 movie of frames
-        self.add_attribute('movie_name_prefix', 'movie_')
         self.add_attribute('setplot',False)            # Execute setplot.py in plot routine
 
         self.add_attribute('mapc2p',None)              # function to map computational
@@ -240,9 +230,7 @@ class ClawPlotData(clawdata.ClawData):
         key = (frameno, outdir)
 
         if refresh or (key not in framesoln_dict):
-            framesoln = solution.Solution(frameno,path=outdir,
-                                          file_prefix=self.file_prefix,
-                                          file_format=self.format)
+            framesoln = solution.Solution(frameno,path=outdir,file_format=self.format)
             if not self.save_frames:
                 framesoln_dict.clear()
             framesoln_dict[key] = framesoln
@@ -583,8 +571,6 @@ class ClawPlotFigure(clawdata.ClawData):
         self._plotdata = plotdata           # parent ClawPlotData object
         self.add_attribute('name',name)
         self.add_attribute('figno',figno)
-        self.add_attribute('figsize',None)
-        self.add_attribute('facecolor',None)
         self.add_attribute('kwargs',{})
         self.add_attribute('clf_each_frame',True)
         self.add_attribute('clf_each_gauge',True)
@@ -669,7 +655,6 @@ class ClawPlotAxes(clawdata.ClawData):
         self.add_attribute('afteraxes',None)
         self.add_attribute('xlimits',None)
         self.add_attribute('ylimits',None)
-        self.add_attribute('skip_patches_outside_xylimits',None)
         self.add_attribute('scaled',False)   # true so x- and y-axis scaled same
         self.add_attribute('image',False)    # true so x- and y-axis scaled same
                                              # and plot bounds tight
@@ -681,35 +666,6 @@ class ClawPlotAxes(clawdata.ClawData):
         self._handle = None
         self._next_ITEM = 0
         self.add_attribute('figno', self._plotfigure.figno)
-
-        # attributes for gauge plots
-        self.add_attribute('time_label', 'time')  # for time axis in gauges
-        self.add_attribute('time_label_fontsize', None)
-        self.add_attribute('time_label_kwargs', {})  # kwargs for xlabel cmd
-        self.add_attribute('time_scale', 1)  # multiplicative factor to rescale t
-                                             # e.g. 1/3600. from sec to hours
-
-        # recently added attributes:
-        self.add_attribute('kwargs', {})
-        self.add_attribute('grid', None) # True to add grid() command
-        self.add_attribute('grid_kwargs', {}) # argument to grid() command
-        self.add_attribute('title_fontsize', None)
-        self.add_attribute('title_kwargs', {}) # e.g. to set color
-        self.add_attribute('title_t_format', None) # format for t in title
-        self.add_attribute('xticks_fontsize', None)
-        self.add_attribute('xticks_kwargs', {}) # e.g. to set ticks,rotation
-        self.add_attribute('yticks_fontsize', None)
-        self.add_attribute('yticks_kwargs', {}) # e.g. to set ticks
-        self.add_attribute('xlabel', None) # label for x-axis
-        self.add_attribute('ylabel', None) # label for y-axis
-        self.add_attribute('xlabel_fontsize', None)
-        self.add_attribute('ylabel_fontsize', None)
-        self.add_attribute('xlabel_kwargs', {})
-        self.add_attribute('ylabel_kwargs', {})
-        self.add_attribute('aspect', None)
-        self.add_attribute('aspect_latitude', None)
-        self.add_attribute('useOffset', None)
-
 
     def new_plotitem(self, name=None, plot_type=None):
         # Create a new entry in self.plotitem_dict
@@ -824,22 +780,18 @@ class ClawPlotItem(clawdata.ClawData):
             self.add_attribute('plot_type',plot_type)
             self.add_attribute('celledges_show',0)
             self.add_attribute('celledges_color','k')
-            self.add_attribute('celledges_linewidth',0.5)
             self.add_attribute('patch_bgcolor','w')
             self.add_attribute('patchedges_show',0)
             self.add_attribute('patchedges_color','k')
-            self.add_attribute('patchedges_linewidth',0.8)
             self.add_attribute('add_colorbar',False)
             self.add_attribute('colorbar_shrink',None)
             self.add_attribute('colorbar_label',None)
             self.add_attribute('colorbar_ticks', None)
             self.add_attribute('colorbar_tick_labels',None)
-            self.add_attribute('colorbar_extend',None)
             self.add_attribute('colorbar_kwargs',{})
             self.add_attribute('kwargs',{})
-            amr_attributes = """celledges_show celledges_color 
-              celledges_linewidth data_show patch_bgcolor patchedges_show 
-              patchedges_color kwargs""".split()
+            amr_attributes = """celledges_show celledges_color data_show
+              patch_bgcolor patchedges_show patchedges_color kwargs""".split()
             for a in amr_attributes:
                 self.add_attribute('amr_%s' % a, [])
 
@@ -854,8 +806,6 @@ class ClawPlotItem(clawdata.ClawData):
                 self.add_attribute('imshow_cmap',colormaps.yellow_red_blue)
                 self.add_attribute('imshow_cmin',None)
                 self.add_attribute('imshow_cmax',None)
-                self.add_attribute('imshow_norm', None)
-                self.add_attribute('imshow_alpha', None)
 
 
             elif plot_type in ['2d_contour', '2d_contourf']:
@@ -903,13 +853,6 @@ class ClawPlotItem(clawdata.ClawData):
                          key_scale key_kwargs data_show""".split()
                 for a in amr_attributes:
                     self.add_attribute('amr_quiver_%s' % a, [])
-
-            elif plot_type == '2d_hillshade':
-                self.add_attribute('hillshade_cmap','gray')
-                self.add_attribute('hillshade_vertical_exaggeration',1)
-                self.add_attribute('hillshade_azimuth_degree',315)
-                self.add_attribute('hillshade_altitude_degree',45)
-                self.add_attribute('hillshade_latlon', False)
 
             else:
                  print('*** Warning 2d plot type %s not recognized' % plot_type)
